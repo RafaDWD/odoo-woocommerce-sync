@@ -240,12 +240,18 @@ class SyncLogger
 
     private function attempt_reprocess(array $log, array $details): bool
     {
-        $type = (string) ($log['sync_type'] ?? '');
+        static $reprocessing = false;
+        if ($reprocessing) {
+            return false; // Evita loop de reentrada
+        }
+
+        $type      = (string) ($log['sync_type'] ?? '');
         $direction = (string) ($log['direction'] ?? '');
         $entity_id = (int) ($log['entity_id'] ?? 0);
 
-        // Reprocessamento base: reexecuta via hooks conhecidos por tipo/direcao.
-        switch ($type) {
+        $reprocessing = true;
+        try {
+            switch ($type) {
             case 'product':
                 if ($direction === 'to_odoo' && $entity_id > 0) {
                     do_action('woocommerce_update_product', $entity_id);
@@ -269,6 +275,9 @@ class SyncLogger
                 return false;
             default:
                 return false;
+        }
+        } finally {
+            $reprocessing = false;
         }
     }
 }
