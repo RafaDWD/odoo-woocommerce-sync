@@ -135,7 +135,7 @@ class Odoo_WooCommerce_Sync
         return $result;
     }
 
-    public function register_custom_schedules(array $schedules): array
+    public static function register_custom_schedules(array $schedules): array
     {
         $schedules['odoo_sync_every_5_minutes'] = [
             'interval' => 5 * MINUTE_IN_SECONDS,
