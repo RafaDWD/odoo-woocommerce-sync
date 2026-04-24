@@ -48,7 +48,15 @@ $fields = $settings['product_fields'] ?? [];
     </tr>
     <tr class="translation-row">
         <th><?php esc_html_e('Chave API de traducao', 'odoo-woocommerce-sync'); ?></th>
-        <td><input class="regular-text" type="password" name="odoo_woocommerce_sync_settings[translation_api_key]" value="<?php echo esc_attr($settings['translation_api_key'] ?? ''); ?>" /></td>
+        <td>
+            <input class="regular-text" type="password"
+                name="odoo_woocommerce_sync_settings[translation_api_key]"
+                value=""
+                placeholder="<?php esc_attr_e('Digite para atualizar a chave', 'odoo-woocommerce-sync'); ?>" />
+            <?php if (!empty($settings['translation_api_key'])) : ?>
+                <span class="description"><?php esc_html_e('Chave ja configurada. Deixe vazio para manter.', 'odoo-woocommerce-sync'); ?></span>
+            <?php endif; ?>
+        </td>
     </tr>
     <tr class="translation-row">
         <th><?php esc_html_e('Idioma origem/destino', 'odoo-woocommerce-sync'); ?></th>

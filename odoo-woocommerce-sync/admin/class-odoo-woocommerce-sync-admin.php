@@ -89,7 +89,8 @@ class Odoo_WooCommerce_Sync_Admin
         $output['product_fields'] = $this->sanitize_checkbox_array($input['product_fields'] ?? [], ['name', 'description', 'price', 'sku', 'categories', 'attributes', 'images']);
         $output['translation_enabled'] = !empty($input['translation_enabled']) ? 1 : 0;
         $output['translation_service'] = in_array(($input['translation_service'] ?? 'google'), ['google', 'deepl'], true) ? $input['translation_service'] : 'google';
-        $output['translation_api_key'] = sanitize_text_field($input['translation_api_key'] ?? '');
+        $new_api_key = sanitize_text_field($input['translation_api_key'] ?? '');
+        $output['translation_api_key'] = $new_api_key !== '' ? $new_api_key : (string) ($output['translation_api_key'] ?? '');
         $output['source_lang'] = sanitize_text_field($input['source_lang'] ?? 'auto');
         $output['target_lang'] = sanitize_text_field($input['target_lang'] ?? 'pt_BR');
         $output['order_status_map'] = $this->sanitize_status_map($input['order_status_map'] ?? []);
