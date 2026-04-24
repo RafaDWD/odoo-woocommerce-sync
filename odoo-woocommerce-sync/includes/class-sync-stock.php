@@ -134,23 +134,49 @@ class SyncStock
 
     public function handle_stock_webhook(\WP_REST_Request $request): \WP_REST_Response
     {
-        $token = (string) $request->get_header('x-odoo-sync-token');
         $expected = (string) ($this->settings['webhook_token'] ?? '');
-        if ($expected !== '' && !hash_equals($expected, $token)) {
-            return new \WP_REST_Response(['success' => false, 'message' => __('Token invalido.', DWD_OWS_TEXT_DOMAIN)], 403);
+
+        if ($expected === '') {
+            return new \WP_REST_Response(
+                ['success' => false, 'message' => __('Webhook nao configurado. Defina um webhook_token nas configuracoes.', DWD_OWS_TEXT_DOMAIN)],
+                403
+            );
         }
 
-        $product_id = (int) $request->get_param('product_id');
-        $new_qty = (float) $request->get_param('new_qty');
+        $token = (string) $request->get_header('x-odoo-sync-token');
+        if (!hash_equals($expected, $token)) {
+            return new \WP_REST_Response(
+                ['success' => false, 'message' => __('Token invalido.', DWD_OWS_TEXT_DOMAIN)],
+                403
+            );
+        }
+
+        $product_id  = (int) $request->get_param('product_id');
+        $new_qty     = (float) $request->get_param('new_qty');
         $location_id = (int) $request->get_param('location_id');
+
+        if ($product_id <= 0) {
+            return new \WP_REST_Response(
+                ['success' => false, 'message' => __('product_id invalido.', DWD_OWS_TEXT_DOMAIN)],
+                400
+            );
+        }
 
         $wc_product_id = $this->find_wc_product_by_odoo_id($product_id);
         if ($wc_product_id <= 0) {
-            return new \WP_REST_Response(['success' => false, 'message' => __('Produto WooCommerce nao encontrado.', DWD_OWS_TEXT_DOMAIN)], 404);
+            return new \WP_REST_Response(
+                ['success' => false, 'message' => __('Produto WooCommerce nao encontrado.', DWD_OWS_TEXT_DOMAIN)],
+                404
+            );
         }
 
         wc_update_product_stock($wc_product_id, $new_qty);
-        $this->logger->log('success', 'stock', 'from_odoo', (string) $wc_product_id, __('Webhook de estoque processado.', DWD_OWS_TEXT_DOMAIN), (string) $product_id, ['location_id' => $location_id, 'new_qty' => $new_qty]);
+        $this->logger->log(
+            'success', 'stock', 'from_odoo', (string) $wc_product_id,
+            __('Webhook de estoque processado.', DWD_OWS_TEXT_DOMAIN),
+            (string) $product_id,
+            ['location_id' => $location_id, 'new_qty' => $new_qty]
+        );
 
         return new \WP_REST_Response(['success' => true], 200);
     }
