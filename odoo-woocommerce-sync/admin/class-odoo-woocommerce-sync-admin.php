@@ -384,14 +384,6 @@ class Odoo_WooCommerce_Sync_Admin
 
     private function build_api_from_settings(): \DWDOdooWooSync\OdooAPI
     {
-        $settings = get_option('odoo_woocommerce_sync_settings', []);
-        return new \DWDOdooWooSync\OdooAPI([
-            'url' => $settings['odoo_url'] ?? '',
-            'db' => $settings['odoo_db'] ?? '',
-            'username' => $settings['odoo_user'] ?? '',
-            'password' => $this->decrypt_secret((string) ($settings['odoo_password'] ?? '')),
-            'company_id' => (int) ($settings['company_id'] ?? 0),
-            'protocol' => $settings['protocol'] ?? 'jsonrpc',
-        ]);
+        return \DWDOdooWooSync\Odoo_WooCommerce_Sync::build_api();
     }
 }
