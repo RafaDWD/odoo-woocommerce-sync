@@ -198,23 +198,43 @@ class SyncLogger
         global $wpdb;
 
         $today = gmdate('Y-m-d');
-        $total_today = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->table} WHERE DATE(created_at) = %s", $today));
-        $success_today = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->table} WHERE DATE(created_at) = %s AND status = %s", $today, 'success'));
-        $errors_today = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->table} WHERE DATE(created_at) = %s AND status = %s", $today, 'error'));
-        $last_sync = (string) $wpdb->get_var("SELECT created_at FROM {$this->table} ORDER BY created_at DESC LIMIT 1");
 
-        $by_type_rows = $wpdb->get_results("SELECT sync_type, COUNT(*) as total FROM {$this->table} GROUP BY sync_type", ARRAY_A);
+        $total_today   = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->table} WHERE DATE(created_at) = %s",
+            $today
+        ));
+        $success_today = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->table} WHERE DATE(created_at) = %s AND status = %s",
+            $today, 'success'
+        ));
+        $errors_today  = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->table} WHERE DATE(created_at) = %s AND status = %s",
+            $today, 'error'
+        ));
+        $last_sync     = (string) $wpdb->get_var($wpdb->prepare(
+            "SELECT created_at FROM {$this->table} ORDER BY created_at DESC LIMIT %d",
+            1
+        ));
+
+        $by_type_rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT sync_type, COUNT(*) as total FROM {$this->table} GROUP BY sync_type LIMIT %d",
+                50
+            ),
+            ARRAY_A
+        );
+
         $by_type = [];
         foreach ((array) $by_type_rows as $row) {
             $by_type[(string) $row['sync_type']] = (int) $row['total'];
         }
 
         return [
-            'total_today' => $total_today,
+            'total_today'   => $total_today,
             'success_today' => $success_today,
-            'errors_today' => $errors_today,
-            'last_sync' => $last_sync,
-            'by_type' => $by_type,
+            'errors_today'  => $errors_today,
+            'last_sync'     => $last_sync,
+            'by_type'       => $by_type,
         ];
     }
 
