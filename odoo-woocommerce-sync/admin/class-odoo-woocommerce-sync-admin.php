@@ -284,22 +284,35 @@ class Odoo_WooCommerce_Sync_Admin
             return $new_value;
         }
         $key = hash('sha256', (string) AUTH_KEY, true);
-        $iv = substr(hash('sha256', (string) SECURE_AUTH_KEY), 0, 16);
-        $encrypted = openssl_encrypt($new_value, 'AES-256-CBC', $key, 0, $iv);
-        return $encrypted ?: $new_value;
+        $iv  = random_bytes(16);
+        $raw = openssl_encrypt($new_value, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+        if ($raw === false) {
+            return $new_value;
+        }
+        return base64_encode($iv . $raw);
     }
 
     private function decrypt_secret(string $encrypted): string
     {
-        if ($encrypted === '') {
-            return '';
-        }
-        if (!function_exists('openssl_decrypt')) {
+        if ($encrypted === '' || !function_exists('openssl_decrypt')) {
             return $encrypted;
         }
         $key = hash('sha256', (string) AUTH_KEY, true);
-        $iv = substr(hash('sha256', (string) SECURE_AUTH_KEY), 0, 16);
-        $plain = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
+        $raw = base64_decode($encrypted, true);
+
+        // Formato novo: 16 bytes de IV + ciphertext
+        if ($raw !== false && strlen($raw) > 16) {
+            $iv     = substr($raw, 0, 16);
+            $cipher = substr($raw, 16);
+            $plain  = openssl_decrypt($cipher, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+            if ($plain !== false) {
+                return $plain;
+            }
+        }
+
+        // Fallback: formato antigo (IV fixo) — migração transparente na próxima gravação
+        $iv_legacy = substr(hash('sha256', (string) SECURE_AUTH_KEY), 0, 16);
+        $plain = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv_legacy);
         return $plain !== false ? $plain : $encrypted;
     }
 
