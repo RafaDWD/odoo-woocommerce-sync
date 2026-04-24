@@ -332,10 +332,6 @@ class SyncProducts
             $this->sync_variations($product, (array) $odoo_product['attribute_line_ids']);
         }
 
-        if (!empty($odoo_product['image_1920'])) {
-            update_post_meta($saved_id, '_odoo_image_1920', substr((string) $odoo_product['image_1920'], 0, 128));
-        }
-
         $message = sprintf(__('Produto %1$s com sucesso (Odoo #%2$d / WooCommerce #%3$d).', DWD_OWS_TEXT_DOMAIN), $action === 'created' ? __('criado', DWD_OWS_TEXT_DOMAIN) : __('atualizado', DWD_OWS_TEXT_DOMAIN), $odoo_id, $saved_id);
         $this->logger->log('success', 'product', 'from_odoo', (string) $saved_id, $message, (string) $odoo_id, ['action' => $action]);
 
