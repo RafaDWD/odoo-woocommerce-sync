@@ -4,7 +4,8 @@ if (!defined('ABSPATH')) {
 }
 
 $logger = new \DWDOdooWooSync\SyncLogger();
-$logs = $logger->get_logs(10);
+$data   = $logger->get_logs([], 1, 10);
+$logs   = $data['items'];
 $products_synced = 0;
 $orders_today = 0;
 $errors_pending = 0;

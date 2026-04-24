@@ -48,69 +48,55 @@ class SyncLogger
         $this->log('warning', $type, $direction, $entity_id, $message, null, $details);
     }
 
-    public function get_logs($filters = [], int $page = 1, int $per_page = 20): array
+    public function get_logs(array $filters = [], int $page = 1, int $per_page = 20): array
     {
         global $wpdb;
 
-        $legacy_mode = false;
-        if (is_int($filters)) {
-            $legacy_mode = true;
-            $per_page = max(1, $filters);
-            $filters = [];
-            $page = 1;
-        }
-
-        $page = max(1, $page);
+        $page     = max(1, $page);
         $per_page = max(1, $per_page);
-        $offset = ($page - 1) * $per_page;
+        $offset   = ($page - 1) * $per_page;
 
-        $where = ['1=1'];
+        $where  = ['1=1'];
         $params = [];
 
         if (!empty($filters['type'])) {
-            $where[] = 'sync_type = %s';
+            $where[]  = 'sync_type = %s';
             $params[] = sanitize_text_field((string) $filters['type']);
         }
         if (!empty($filters['status'])) {
-            $where[] = 'status = %s';
+            $where[]  = 'status = %s';
             $params[] = sanitize_text_field((string) $filters['status']);
         }
         if (!empty($filters['entity_id'])) {
-            $where[] = 'entity_id = %s';
+            $where[]  = 'entity_id = %s';
             $params[] = sanitize_text_field((string) $filters['entity_id']);
         }
         if (!empty($filters['date_from'])) {
-            $where[] = 'created_at >= %s';
+            $where[]  = 'created_at >= %s';
             $params[] = sanitize_text_field((string) $filters['date_from']);
         }
         if (!empty($filters['date_to'])) {
-            $where[] = 'created_at <= %s';
+            $where[]  = 'created_at <= %s';
             $params[] = sanitize_text_field((string) $filters['date_to']);
         }
 
-        $where_sql = implode(' AND ', $where);
-        $count_sql = "SELECT COUNT(*) FROM {$this->table} WHERE {$where_sql}";
-        $total = (int) $wpdb->get_var($wpdb->prepare($count_sql, $params));
+        $where_sql   = implode(' AND ', $where);
+        $count_sql   = "SELECT COUNT(*) FROM {$this->table} WHERE {$where_sql}";
+        $total       = (int) $wpdb->get_var($wpdb->prepare($count_sql, $params));
 
-        $data_sql = "SELECT * FROM {$this->table} WHERE {$where_sql} ORDER BY created_at DESC LIMIT %d OFFSET %d";
+        $data_sql    = "SELECT * FROM {$this->table} WHERE {$where_sql} ORDER BY created_at DESC LIMIT %d OFFSET %d";
         $data_params = array_merge($params, [$per_page, $offset]);
-        $rows = $wpdb->get_results($wpdb->prepare($data_sql, $data_params), ARRAY_A);
+        $rows        = $wpdb->get_results($wpdb->prepare($data_sql, $data_params), ARRAY_A);
 
-        $response = [
-            'items' => is_array($rows) ? $rows : [],
+        return [
+            'items'      => is_array($rows) ? $rows : [],
             'pagination' => [
-                'page' => $page,
-                'per_page' => $per_page,
-                'total' => $total,
-                'total_pages' => (int) ceil($total / $per_page),
+                'page'        => $page,
+                'per_page'    => $per_page,
+                'total'       => $total,
+                'total_pages' => (int) ceil($total / max(1, $per_page)),
             ],
         ];
-
-        if ($legacy_mode) {
-            return $response['items'];
-        }
-
-        return $response;
     }
 
     public function get_error_count(): int

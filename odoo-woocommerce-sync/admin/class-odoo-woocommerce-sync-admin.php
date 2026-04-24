@@ -238,7 +238,8 @@ class Odoo_WooCommerce_Sync_Admin
         }
 
         $logger = new \DWDOdooWooSync\SyncLogger();
-        $logs = $logger->get_logs(500);
+        $data   = $logger->get_logs([], 1, 500);
+        $logs   = $data['items'];
         $upload = wp_upload_dir();
         $file = trailingslashit($upload['basedir']) . 'odoo-sync-logs-' . gmdate('Ymd-His') . '.csv';
         $fh = fopen($file, 'w');
