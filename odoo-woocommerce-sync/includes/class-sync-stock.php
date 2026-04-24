@@ -26,43 +26,55 @@ class SyncStock
 
         try {
             $query = new \WP_Query([
-                'post_type' => 'product',
-                'post_status' => 'any',
+                'post_type'      => 'product',
+                'post_status'    => 'any',
                 'posts_per_page' => -1,
-                'fields' => 'ids',
-                'meta_query' => [
-                    [
-                        'key' => '_odoo_product_id',
-                        'compare' => 'EXISTS',
-                    ],
-                ],
+                'fields'         => 'ids',
+                'meta_query'     => [[
+                    'key'     => '_odoo_product_id',
+                    'compare' => 'EXISTS',
+                ]],
             ]);
 
             $product_ids = array_map('intval', (array) $query->posts);
             $chunks = array_chunk($product_ids, 50);
 
             foreach ($chunks as $chunk) {
-                $odoo_map = [];
+                // Mapa: odoo_template_id => wc_product_id
+                $tmpl_map = [];
                 foreach ($chunk as $wc_product_id) {
-                    $odoo_id = (int) get_post_meta($wc_product_id, '_odoo_product_id', true);
-                    if ($odoo_id > 0) {
-                        $odoo_map[$odoo_id] = $wc_product_id;
+                    $odoo_tmpl_id = (int) get_post_meta($wc_product_id, '_odoo_product_id', true);
+                    if ($odoo_tmpl_id > 0) {
+                        $tmpl_map[$odoo_tmpl_id] = $wc_product_id;
                     }
                 }
-                if (empty($odoo_map)) {
+                if (empty($tmpl_map)) {
                     continue;
                 }
 
-                $domain = [['id', 'in', array_keys($odoo_map)]];
-                $rows = $this->api->search_read('product.product', $domain, ['id', 'qty_available'], 200, 0);
+                // Filtra product.product pelo campo product_tmpl_id (Many2one do template)
+                $domain = [['product_tmpl_id', 'in', array_keys($tmpl_map)]];
+                $rows   = $this->api->search_read(
+                    'product.product',
+                    $domain,
+                    ['id', 'product_tmpl_id', 'qty_available'],
+                    200,
+                    0
+                );
+
                 foreach ($rows as $row) {
                     try {
-                        $odoo_id = (int) ($row['id'] ?? 0);
-                        if ($odoo_id <= 0 || !isset($odoo_map[$odoo_id])) {
+                        // product_tmpl_id retorna como [id, name] no JSON-RPC do Odoo
+                        $tmpl_id = is_array($row['product_tmpl_id'] ?? null)
+                            ? (int) $row['product_tmpl_id'][0]
+                            : (int) ($row['product_tmpl_id'] ?? 0);
+
+                        if ($tmpl_id <= 0 || !isset($tmpl_map[$tmpl_id])) {
                             continue;
                         }
-                        $wc_product_id = (int) $odoo_map[$odoo_id];
-                        $qty = isset($row['qty_available']) ? (float) $row['qty_available'] : 0.0;
+
+                        $wc_product_id = (int) $tmpl_map[$tmpl_id];
+                        $qty           = isset($row['qty_available']) ? (float) $row['qty_available'] : 0.0;
                         wc_update_product_stock($wc_product_id, $qty);
                         $result['updated']++;
                     } catch (\Throwable $e) {
@@ -181,9 +193,10 @@ class SyncStock
         return new \WP_REST_Response(['success' => true], 200);
     }
 
-    public function get_odoo_stock_location_qty(int $product_id, int $location_id): float
+    public function get_odoo_stock_location_qty(int $odoo_product_product_id, int $location_id): float
     {
-        $cache_key = 'odoo_stock_qty_' . md5($product_id . ':' . $location_id);
+        // $odoo_product_product_id deve ser o ID de product.product (não product.template)
+        $cache_key = 'odoo_stock_qty_' . md5($odoo_product_product_id . ':' . $location_id);
         $cached = get_transient($cache_key);
         if ($cached !== false) {
             return (float) $cached;
@@ -192,7 +205,7 @@ class SyncStock
         try {
             $rows = $this->api->search_read(
                 'stock.quant',
-                [['product_id', '=', $product_id], ['location_id', '=', $location_id]],
+                [['product_id', '=', $odoo_product_product_id], ['location_id', '=', $location_id]],
                 ['quantity'],
                 1,
                 0
@@ -201,7 +214,7 @@ class SyncStock
             set_transient($cache_key, $qty, 5 * MINUTE_IN_SECONDS);
             return $qty;
         } catch (\Throwable $e) {
-            $this->logger->log('error', 'stock', 'from_odoo', (string) $product_id, $e->getMessage(), null, ['location_id' => $location_id]);
+            $this->logger->log('error', 'stock', 'from_odoo', (string) $odoo_product_product_id, $e->getMessage(), null, ['location_id' => $location_id]);
             return 0.0;
         }
     }
