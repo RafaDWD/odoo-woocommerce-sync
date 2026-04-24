@@ -1,0 +1,64 @@
+.odoo-sync-admin .nav-tab-wrapper {
+    margin-bottom: 16px;
+}
+
+.odoo-sync-admin .form-table th {
+    width: 220px;
+}
+
+.odoo-inline-result {
+    margin-left: 8px;
+    font-weight: 600;
+}
+
+.odoo-inline-result.ok {
+    color: #0f5132;
+}
+
+.odoo-inline-result.fail {
+    color: #842029;
+}
+
+.odoo-progress {
+    max-width: 420px;
+    height: 10px;
+    background: #e9ecef;
+    border-radius: 6px;
+    margin: 12px 0 16px;
+    overflow: hidden;
+}
+
+.odoo-progress span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: #2271b1;
+    transition: width .2s linear;
+}
+
+.odoo-sync-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 10px 0 18px;
+}
+
+.odoo-sync-card {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.odoo-sync-card p {
+    font-size: 20px;
+    margin: 6px 0;
+}
+
+.odoo-sync-card p.ok {
+    color: #0f5132;
+}
+
+.odoo-sync-card p.fail {
+    color: #842029;
+}

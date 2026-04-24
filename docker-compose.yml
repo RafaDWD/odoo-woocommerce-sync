@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  wordpress:
+    image: wordpress:php8.2-apache
+    container_name: odoo_wp
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: mysql
+      WORDPRESS_DB_USER: ${WP_DB_USER}
+      WORDPRESS_DB_PASSWORD: ${WP_DB_PASSWORD}
+      WORDPRESS_DB_NAME: ${WP_DB_NAME}
+    volumes:
+      - ./odoo-woocommerce-sync:/var/www/html/wp-content/plugins/odoo-woocommerce-sync
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:8.0
+    container_name: odoo_mysql
+    environment:
+      MYSQL_DATABASE: ${WP_DB_NAME}
+      MYSQL_USER: ${WP_DB_USER}
+      MYSQL_PASSWORD: ${WP_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${WP_DB_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  odoo:
+    image: odoo:17
+    container_name: odoo_app
+    depends_on:
+      - postgres
+    ports:
+      - "8069:8069"
+    environment:
+      HOST: postgres
+      USER: ${ODOO_DB_USER}
+      PASSWORD: ${ODOO_DB_PASSWORD}
+    volumes:
+      - odoo_data:/var/lib/odoo
+
+  postgres:
+    image: postgres:15
+    container_name: odoo_postgres
+    environment:
+      POSTGRES_DB: ${ODOO_DB_NAME}
+      POSTGRES_USER: ${ODOO_DB_USER}
+      POSTGRES_PASSWORD: ${ODOO_DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer:latest
+    container_name: odoo_adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - mysql
+      - postgres
+
+volumes:
+  mysql_data:
+  postgres_data:
+  odoo_data:
