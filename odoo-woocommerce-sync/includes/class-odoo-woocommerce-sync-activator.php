@@ -38,6 +38,12 @@ class Odoo_WooCommerce_Sync_Activator
         add_option('odoo_woocommerce_sync_settings', []);
         add_option('odoo_sync_stores', []);
 
+        // Garante que os schedules customizados existam antes de wp_schedule_event
+        $schedules = wp_get_schedules();
+        if (!isset($schedules['odoo_sync_every_5_minutes']) || !isset($schedules['odoo_sync_every_15_minutes'])) {
+            add_filter('cron_schedules', [Odoo_WooCommerce_Sync::class, 'register_custom_schedules']);
+        }
+
         Odoo_WooCommerce_Sync::activate_cron_jobs();
     }
 }

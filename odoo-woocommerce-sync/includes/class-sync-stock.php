@@ -119,18 +119,34 @@ class SyncStock
     {
         $frequency = (string) ($this->settings['stock_frequency'] ?? 'hourly');
 
-        wp_clear_scheduled_hook('odoo_sync_stock_hourly');
-        wp_clear_scheduled_hook('odoo_sync_stock_daily');
+        $has_hourly = (bool) wp_next_scheduled('odoo_sync_stock_hourly');
+        $has_daily  = (bool) wp_next_scheduled('odoo_sync_stock_daily');
 
         if ($frequency === 'realtime') {
+            if ($has_hourly) {
+                wp_clear_scheduled_hook('odoo_sync_stock_hourly');
+            }
+            if ($has_daily) {
+                wp_clear_scheduled_hook('odoo_sync_stock_daily');
+            }
             return;
         }
 
-        if ($frequency === 'daily' && !wp_next_scheduled('odoo_sync_stock_daily')) {
-            wp_schedule_event(time() + 60, 'daily', 'odoo_sync_stock_daily');
+        if ($frequency === 'daily') {
+            if ($has_hourly) {
+                wp_clear_scheduled_hook('odoo_sync_stock_hourly');
+            }
+            if (!$has_daily) {
+                wp_schedule_event(time() + 60, 'daily', 'odoo_sync_stock_daily');
+            }
+            return;
         }
 
-        if ($frequency === 'hourly' && !wp_next_scheduled('odoo_sync_stock_hourly')) {
+        // default: hourly
+        if ($has_daily) {
+            wp_clear_scheduled_hook('odoo_sync_stock_daily');
+        }
+        if (!$has_hourly) {
             wp_schedule_event(time() + 60, 'hourly', 'odoo_sync_stock_hourly');
         }
     }
