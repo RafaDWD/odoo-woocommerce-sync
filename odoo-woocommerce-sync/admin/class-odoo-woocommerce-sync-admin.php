@@ -174,24 +174,47 @@ class Odoo_WooCommerce_Sync_Admin
             wp_send_json_error(['message' => __('Acesso negado.', DWD_OWS_TEXT_DOMAIN)], 403);
         }
 
-        $type = sanitize_key($_POST['sync_type'] ?? '');
+        $type  = sanitize_key($_POST['sync_type'] ?? '');
         $valid = ['products', 'orders', 'stock'];
         if (!in_array($type, $valid, true)) {
             wp_send_json_error(['message' => __('Tipo de sincronizacao invalido.', DWD_OWS_TEXT_DOMAIN)], 400);
         }
 
-        $progress = [];
-        for ($i = 1; $i <= 10; $i++) {
-            $progress[] = $i * 10;
-        }
-
+        $api    = $this->build_api_from_settings();
         $logger = new \DWDOdooWooSync\SyncLogger();
-        $logger->log('success', rtrim($type, 's'), 'manual', 'admin', __('Sincronizacao manual executada.', DWD_OWS_TEXT_DOMAIN));
 
-        wp_send_json_success([
-            'message' => __('Sincronizacao concluida com sucesso.', DWD_OWS_TEXT_DOMAIN),
-            'progress' => $progress,
-        ]);
+        try {
+            switch ($type) {
+                case 'products':
+                    $sync   = new \DWDOdooWooSync\SyncProducts($api, $logger, new \DWDOdooWooSync\TranslationService($logger));
+                    $result = $sync->sync_from_odoo();
+                    break;
+
+                case 'orders':
+                    $customers = new \DWDOdooWooSync\SyncCustomers($api, $logger);
+                    $orders    = new \DWDOdooWooSync\SyncOrders($api, $logger, $customers);
+                    $result    = $orders->import_orders_from_odoo();
+                    break;
+
+                case 'stock':
+                    $customers = new \DWDOdooWooSync\SyncCustomers($api, $logger);
+                    $orders    = new \DWDOdooWooSync\SyncOrders($api, $logger, $customers);
+                    $stock     = new \DWDOdooWooSync\SyncStock($api, $logger, $orders);
+                    $result    = $stock->update_woocommerce_stock_from_odoo();
+                    break;
+
+                default:
+                    $result = ['errors' => 1];
+            }
+
+            wp_send_json_success([
+                'message'  => __('Sincronizacao concluida.', DWD_OWS_TEXT_DOMAIN),
+                'result'   => $result,
+                'progress' => [10, 30, 60, 90, 100],
+            ]);
+        } catch (\Throwable $e) {
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
     }
 
     public function ajax_cleanup_logs()
