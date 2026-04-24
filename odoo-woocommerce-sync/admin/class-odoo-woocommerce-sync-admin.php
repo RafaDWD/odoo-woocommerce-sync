@@ -109,37 +109,37 @@ class Odoo_WooCommerce_Sync_Admin
 
     public function display_admin_page()
     {
-        $_GET['tab'] = 'dashboard';
-        include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
+        $this->render_admin_tab('dashboard');
     }
 
     public function display_products_page()
     {
-        $_GET['tab'] = 'products';
-        include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
+        $this->render_admin_tab('products');
     }
 
     public function display_orders_page()
     {
-        $_GET['tab'] = 'orders';
-        include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
+        $this->render_admin_tab('orders');
     }
 
     public function display_stock_page()
     {
-        $_GET['tab'] = 'stock';
-        include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
+        $this->render_admin_tab('stock');
     }
 
     public function display_logs_page()
     {
-        $_GET['tab'] = 'logs';
-        include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
+        $this->render_admin_tab('logs');
     }
 
     public function display_settings_page()
     {
-        $_GET['tab'] = 'credentials';
+        $this->render_admin_tab('credentials');
+    }
+
+    private function render_admin_tab(string $forced_tab): void
+    {
+        $tab = $forced_tab; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
         include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
     }
 

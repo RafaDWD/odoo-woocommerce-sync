@@ -3,7 +3,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'dashboard';
+// $tab é injetada por render_admin_tab(); fallback para GET se acessado diretamente
+if (!isset($tab)) {
+    $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'dashboard';
+}
 ?>
 <div class="wrap odoo-sync-admin">
     <h1><?php esc_html_e('DWD Multicom Odoo WooCommerce Sync', 'odoo-woocommerce-sync'); ?></h1>
