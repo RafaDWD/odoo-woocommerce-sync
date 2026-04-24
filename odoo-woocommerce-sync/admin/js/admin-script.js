@@ -100,13 +100,11 @@
         });
 
         $('#odoo-export-logs').on('click', function () {
-            ajaxPost({ action: 'odoo_sync_export_logs', nonce: odooSyncAdmin.nonce }).done(function (res) {
-                if (!res.success) {
-                    setInlineResult('#odoo-logs-result', (res.data && res.data.message) || 'Erro ao exportar.', false);
-                    return;
-                }
-                setInlineResult('#odoo-logs-result', (res.data.message || 'CSV gerado.') + ' ' + (res.data.url || ''), true);
-            });
+            // Download direto via redirect — o endpoint envia Content-Disposition: attachment
+            var url = odooSyncAdmin.ajaxUrl
+                + '?action=odoo_sync_export_logs'
+                + '&nonce=' + encodeURIComponent(odooSyncAdmin.nonce);
+            window.location.href = url;
         });
 
         var translationEnabled = $('#translation_enabled').is(':checked');

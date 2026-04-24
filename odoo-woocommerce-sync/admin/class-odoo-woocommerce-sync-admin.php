@@ -233,27 +233,37 @@ class Odoo_WooCommerce_Sync_Admin
 
     public function ajax_export_logs()
     {
-        check_ajax_referer('odoo_sync_nonce', 'nonce');
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => __('Acesso negado.', DWD_OWS_TEXT_DOMAIN)], 403);
+        // Verifica nonce e permissão antes de qualquer output
+        if (!check_ajax_referer('odoo_sync_nonce', 'nonce', false) || !current_user_can('manage_options')) {
+            status_header(403);
+            exit('Acesso negado.');
         }
 
-        $logger = new \DWDOdooWooSync\SyncLogger();
-        $data   = $logger->get_logs([], 1, 500);
-        $logs   = $data['items'];
-        $upload = wp_upload_dir();
-        $file = trailingslashit($upload['basedir']) . 'odoo-sync-logs-' . gmdate('Ymd-His') . '.csv';
-        $fh = fopen($file, 'w');
-        if (!$fh) {
-            wp_send_json_error(['message' => __('Nao foi possivel gerar CSV.', DWD_OWS_TEXT_DOMAIN)], 500);
-        }
+        $logger   = new \DWDOdooWooSync\SyncLogger();
+        $data     = $logger->get_logs([], 1, 500);
+        $logs     = $data['items'];
+        $filename = 'odoo-sync-logs-' . gmdate('Ymd-His') . '.csv';
+
+        // Envia diretamente como download — sem salvar arquivo público
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Pragma: no-cache');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+
+        $fh = fopen('php://output', 'w');
         fputcsv($fh, ['created_at', 'sync_type', 'direction', 'entity_id', 'status', 'message']);
         foreach ($logs as $row) {
-            fputcsv($fh, [$row['created_at'], $row['sync_type'], $row['direction'], $row['entity_id'], $row['status'], $row['message']]);
+            fputcsv($fh, [
+                $row['created_at'] ?? '',
+                $row['sync_type']  ?? '',
+                $row['direction']  ?? '',
+                $row['entity_id']  ?? '',
+                $row['status']     ?? '',
+                $row['message']    ?? '',
+            ]);
         }
         fclose($fh);
-
-        wp_send_json_success(['message' => __('CSV gerado com sucesso.', DWD_OWS_TEXT_DOMAIN), 'url' => trailingslashit($upload['baseurl']) . basename($file)]);
+        exit;
     }
 
     public function ajax_reprocess_failures()
