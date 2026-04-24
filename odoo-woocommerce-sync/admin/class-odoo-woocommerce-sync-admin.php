@@ -98,6 +98,12 @@ class Odoo_WooCommerce_Sync_Admin
         $output['stock_frequency'] = in_array(($input['stock_frequency'] ?? 'hourly'), ['realtime', 'hourly', 'daily'], true) ? $input['stock_frequency'] : 'hourly';
         $output['stock_location_id'] = sanitize_text_field($input['stock_location_id'] ?? '');
 
+        $new_rest_token = sanitize_text_field($input['rest_token'] ?? '');
+        $output['rest_token'] = $new_rest_token !== '' ? $new_rest_token : (string) ($output['rest_token'] ?? '');
+
+        $new_webhook_token = sanitize_text_field($input['webhook_token'] ?? '');
+        $output['webhook_token'] = $new_webhook_token !== '' ? $new_webhook_token : (string) ($output['webhook_token'] ?? '');
+
         return $output;
     }
 

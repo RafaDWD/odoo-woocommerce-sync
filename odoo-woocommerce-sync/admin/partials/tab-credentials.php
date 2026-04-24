@@ -37,6 +37,34 @@ $settings = get_option('odoo_woocommerce_sync_settings', []);
             <label><input type="radio" name="odoo_woocommerce_sync_settings[protocol]" value="xmlrpc" <?php checked(($settings['protocol'] ?? ''), 'xmlrpc'); ?> /> XML-RPC</label>
         </td>
     </tr>
+    <tr>
+        <th><label for="rest_token"><?php esc_html_e('Token REST API', 'odoo-woocommerce-sync'); ?></label></th>
+        <td>
+            <input class="regular-text" type="password" id="rest_token"
+                name="odoo_woocommerce_sync_settings[rest_token]"
+                value=""
+                placeholder="<?php esc_attr_e('Digite para atualizar o token', 'odoo-woocommerce-sync'); ?>" />
+            <?php if (!empty($settings['rest_token'])) : ?>
+                <span class="description"><?php esc_html_e('Token configurado. Deixe vazio para manter.', 'odoo-woocommerce-sync'); ?></span>
+            <?php endif; ?>
+            <p class="description"><?php esc_html_e('Usado no header X-Odoo-Sync-Token para autenticar chamadas REST externas.', 'odoo-woocommerce-sync'); ?></p>
+        </td>
+    </tr>
+    <tr>
+        <th><label for="webhook_token"><?php esc_html_e('Token Webhook de Estoque', 'odoo-woocommerce-sync'); ?></label></th>
+        <td>
+            <input class="regular-text" type="password" id="webhook_token"
+                name="odoo_woocommerce_sync_settings[webhook_token]"
+                value=""
+                placeholder="<?php esc_attr_e('Digite para atualizar o token', 'odoo-woocommerce-sync'); ?>" />
+            <?php if (!empty($settings['webhook_token'])) : ?>
+                <span class="description"><?php esc_html_e('Token configurado. Deixe vazio para manter.', 'odoo-woocommerce-sync'); ?></span>
+            <?php else : ?>
+                <span class="description" style="color:#d63638"><?php esc_html_e('Token nao configurado — webhook de estoque recusara todas as requisicoes.', 'odoo-woocommerce-sync'); ?></span>
+            <?php endif; ?>
+            <p class="description"><?php esc_html_e('Obrigatorio para receber atualizacoes de estoque via webhook do Odoo.', 'odoo-woocommerce-sync'); ?></p>
+        </td>
+    </tr>
 </table>
 <p>
     <button type="button" class="button button-secondary" id="odoo-test-connection"><?php esc_html_e('Testar Conexao', 'odoo-woocommerce-sync'); ?></button>
