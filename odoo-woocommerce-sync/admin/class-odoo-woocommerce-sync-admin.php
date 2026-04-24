@@ -263,8 +263,33 @@ class Odoo_WooCommerce_Sync_Admin
 
         global $wpdb;
         $table = $wpdb->prefix . 'odoo_sync_logs';
-        $updated = $wpdb->query("UPDATE {$table} SET reprocessed = 1 WHERE status = 'error' AND reprocessed = 0");
-        wp_send_json_success(['message' => sprintf(__('Falhas marcadas para reprocessamento: %d', DWD_OWS_TEXT_DOMAIN), (int) $updated)]);
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id FROM {$table} WHERE status = %s AND reprocessed = %d ORDER BY created_at DESC LIMIT %d",
+                'error', 0, 50
+            ),
+            ARRAY_A
+        );
+
+        if (empty($rows)) {
+            wp_send_json_success(['message' => __('Nenhuma falha pendente para reprocessar.', DWD_OWS_TEXT_DOMAIN)]);
+            return;
+        }
+
+        $log_ids = array_column($rows, 'id');
+        $logger  = new \DWDOdooWooSync\SyncLogger();
+        $result  = $logger->reprocess_failed($log_ids);
+
+        wp_send_json_success([
+            'message' => sprintf(
+                __('Reprocessados: %1$d | Sucesso: %2$d | Falhas: %3$d', DWD_OWS_TEXT_DOMAIN),
+                $result['processed'],
+                $result['succeeded'],
+                $result['failed']
+            ),
+            'details' => $result['messages'],
+        ]);
     }
 
     private function sanitize_checkbox_array($values, array $allowed): array
