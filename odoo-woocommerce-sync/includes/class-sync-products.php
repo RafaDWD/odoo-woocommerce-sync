@@ -211,9 +211,12 @@ class SyncProducts
         if ($post->post_type !== 'product' || wp_is_post_revision($post_id)) {
             return;
         }
-        if ($update) {
+        if (!$update) {
+            // Produto novo: woocommerce_update_product dispara logo após e cobre este caso.
+            // Retornar aqui evita dupla exportação para o Odoo.
             return;
         }
+        // Update direto via wp_update_post sem passar pelo WooCommerce
         $this->sync_to_odoo($post_id);
     }
 
