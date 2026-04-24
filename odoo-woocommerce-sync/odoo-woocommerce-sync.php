@@ -54,4 +54,4 @@ function run_odoo_woocommerce_sync()
     $plugin->run();
 }
 
-run_odoo_woocommerce_sync();
+add_action('plugins_loaded', 'run_odoo_woocommerce_sync');
