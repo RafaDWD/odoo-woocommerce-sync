@@ -16,6 +16,7 @@ class OdooAPI
     protected $timeout;
     protected $verify_ssl;
     protected $uid;
+    protected $session_id;
 
     public function __construct(array $config = [])
     {
@@ -28,6 +29,7 @@ class OdooAPI
         $this->timeout = isset($config['timeout']) ? max(5, (int) $config['timeout']) : 30;
         $this->verify_ssl = isset($config['verify_ssl']) ? (bool) $config['verify_ssl'] : true;
         $this->uid = null;
+        $this->session_id = null;
     }
 
     public function authenticate()
@@ -147,6 +149,9 @@ class OdooAPI
         }
 
         $this->uid = $uid;
+        if (!empty($response['session_id'])) {
+            $this->session_id = (string) $response['session_id'];
+        }
         return true;
     }
 
@@ -203,7 +208,12 @@ class OdooAPI
             'id' => wp_generate_uuid4(),
         ];
 
-        $response = $this->http_post_with_retry($path, wp_json_encode($payload), ['Content-Type' => 'application/json']);
+        $headers = ['Content-Type' => 'application/json'];
+        if ($this->session_id !== null) {
+            $headers['Cookie'] = 'session_id=' . $this->session_id;
+        }
+
+        $response = $this->http_post_with_retry($path, wp_json_encode($payload), $headers);
         $decoded = json_decode(wp_remote_retrieve_body($response), true);
 
         if (!is_array($decoded)) {
@@ -461,6 +471,7 @@ class OdooAPI
     public function reset_session(): void
     {
         $this->uid = null;
+        $this->session_id = null;
     }
 
     public function get_safe_config(): array
