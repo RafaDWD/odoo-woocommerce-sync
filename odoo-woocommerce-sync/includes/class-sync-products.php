@@ -35,8 +35,10 @@ class SyncProducts
             }
 
             $batch_size = isset($options['batch_size']) ? max(1, (int) $options['batch_size']) : 50;
-            $offset = isset($options['offset']) ? max(0, (int) $options['offset']) : 0;
-            $domain = $options['domain'] ?? [['active', '=', true], ['type', 'in', ['consu', 'product']]];
+            $offset     = isset($options['offset']) ? max(0, (int) $options['offset']) : 0;
+            // Filtro somente por active=true; tipo removido para não excluir
+            // produtos do tipo "service" que o usuário queira vender no WooCommerce.
+            $domain = $options['domain'] ?? [['active', '=', true]];
             $fields = [
                 'id',
                 'name',
@@ -48,9 +50,19 @@ class SyncProducts
                 'attribute_line_ids',
                 'qty_available',
                 // image_1920 excluído do batch — cada imagem pode ter centenas de KB
-                // e retornar 50 imagens em um único XML-RPC/JSON-RPC esgota memória.
+                // e retornar 50 imagens em um único request esgota memória.
                 // A imagem é buscada individualmente em sync_single_odoo_product().
             ];
+
+            // Diagnóstico: registra quantos produtos o Odoo retorna com o filtro atual.
+            try {
+                $total_count = count($this->api->search('product.template', $domain));
+                $this->logger->log('info', 'product', 'from_odoo', 'batch',
+                    sprintf('Odoo retornou %d produtos para sincronizar.', $total_count));
+            } catch (\Throwable $e) {
+                $this->logger->log('warning', 'product', 'from_odoo', 'batch',
+                    'Nao foi possivel contar produtos no Odoo: ' . $e->getMessage());
+            }
 
             do {
                 $records = $this->api->search_read('product.template', $domain, $fields, $batch_size, $offset);
@@ -83,7 +95,7 @@ class SyncProducts
                 'product',
                 'from_odoo',
                 'batch',
-                __('Sincronizacao de produtos finalizada.', DWD_OWS_TEXT_DOMAIN),
+                sprintf(__('Sincronizacao de produtos finalizada. Criados: %d | Atualizados: %d | Erros: %d', DWD_OWS_TEXT_DOMAIN), $result['created'], $result['updated'], $result['errors']),
                 null,
                 $result
             );
