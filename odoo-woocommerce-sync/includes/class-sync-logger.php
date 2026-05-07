@@ -163,36 +163,6 @@ class SyncLogger
         return (int) $deleted;
     }
 
-    public function export_csv(array $filters = []): string
-    {
-        $data = $this->get_logs($filters, 1, 5000);
-        $rows = $data['items'] ?? [];
-
-        $upload = wp_upload_dir();
-        $file_path = trailingslashit($upload['basedir']) . 'odoo-sync-logs-' . gmdate('Ymd-His') . '.csv';
-        $fh = fopen($file_path, 'w');
-        if (!$fh) {
-            return '';
-        }
-
-        fputcsv($fh, ['id', 'created_at', 'sync_type', 'direction', 'entity_id', 'odoo_id', 'status', 'message']);
-        foreach ($rows as $row) {
-            fputcsv($fh, [
-                $row['id'] ?? '',
-                $row['created_at'] ?? '',
-                $row['sync_type'] ?? '',
-                $row['direction'] ?? '',
-                $row['entity_id'] ?? '',
-                $row['odoo_id'] ?? '',
-                $row['status'] ?? '',
-                $row['message'] ?? '',
-            ]);
-        }
-        fclose($fh);
-
-        return $file_path;
-    }
-
     public function get_stats(): array
     {
         global $wpdb;

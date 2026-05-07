@@ -62,6 +62,9 @@ class SyncStock
                     0
                 );
 
+                // Agrega por template para evitar sobrescrita em produtos variáveis:
+                // product.product retorna 1+ linhas (variantes) para o mesmo product.template.
+                $qty_by_tmpl = [];
                 foreach ($rows as $row) {
                     try {
                         // product_tmpl_id retorna como [id, name] no JSON-RPC do Odoo
@@ -73,13 +76,22 @@ class SyncStock
                             continue;
                         }
 
-                        $wc_product_id = (int) $tmpl_map[$tmpl_id];
-                        $qty           = isset($row['qty_available']) ? (float) $row['qty_available'] : 0.0;
+                        $qty = isset($row['qty_available']) ? (float) $row['qty_available'] : 0.0;
+                        $qty_by_tmpl[$tmpl_id] = ($qty_by_tmpl[$tmpl_id] ?? 0.0) + $qty;
+                    } catch (\Throwable $e) {
+                        $result['errors']++;
+                        $this->logger->log('error', 'stock', 'from_odoo', (string) ($row['id'] ?? ''), $e->getMessage());
+                    }
+                }
+
+                foreach ($qty_by_tmpl as $tmpl_id => $qty) {
+                    try {
+                        $wc_product_id = (int) $tmpl_map[(int) $tmpl_id];
                         wc_update_product_stock($wc_product_id, $qty);
                         $result['updated']++;
                     } catch (\Throwable $e) {
                         $result['errors']++;
-                        $this->logger->log('error', 'stock', 'from_odoo', (string) ($row['id'] ?? ''), $e->getMessage());
+                        $this->logger->log('error', 'stock', 'from_odoo', (string) $tmpl_id, $e->getMessage());
                     }
                 }
             }
@@ -156,29 +168,24 @@ class SyncStock
         register_rest_route('odoo-sync/v1', '/stock-webhook', [
             'methods' => 'POST',
             'callback' => [$this, 'handle_stock_webhook'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'webhook_permission_check'],
         ]);
+    }
+
+    public function webhook_permission_check(\WP_REST_Request $request): bool
+    {
+        $expected = (string) ($this->settings['webhook_token'] ?? '');
+
+        if ($expected !== '') {
+            $token = (string) $request->get_header('x-odoo-sync-token');
+            return hash_equals($expected, $token);
+        }
+
+        return !empty($this->settings['allow_unauthenticated_stock_webhook']);
     }
 
     public function handle_stock_webhook(\WP_REST_Request $request): \WP_REST_Response
     {
-        $expected = (string) ($this->settings['webhook_token'] ?? '');
-
-        if ($expected === '') {
-            return new \WP_REST_Response(
-                ['success' => false, 'message' => __('Webhook nao configurado. Defina um webhook_token nas configuracoes.', DWD_OWS_TEXT_DOMAIN)],
-                403
-            );
-        }
-
-        $token = (string) $request->get_header('x-odoo-sync-token');
-        if (!hash_equals($expected, $token)) {
-            return new \WP_REST_Response(
-                ['success' => false, 'message' => __('Token invalido.', DWD_OWS_TEXT_DOMAIN)],
-                403
-            );
-        }
-
         $product_id  = (int) $request->get_param('product_id');
         $new_qty     = (float) $request->get_param('new_qty');
         $location_id = (int) $request->get_param('location_id');

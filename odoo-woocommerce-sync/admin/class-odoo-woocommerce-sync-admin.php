@@ -104,6 +104,8 @@ class Odoo_WooCommerce_Sync_Admin
         $new_webhook_token = sanitize_text_field($input['webhook_token'] ?? '');
         $output['webhook_token'] = $new_webhook_token !== '' ? $new_webhook_token : (string) ($output['webhook_token'] ?? '');
 
+        $output['allow_unauthenticated_stock_webhook'] = !empty($input['allow_unauthenticated_stock_webhook']) ? 1 : 0;
+
         return $output;
     }
 

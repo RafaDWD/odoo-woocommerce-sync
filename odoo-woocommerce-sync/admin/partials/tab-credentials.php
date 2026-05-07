@@ -65,6 +65,21 @@ $settings = get_option('odoo_woocommerce_sync_settings', []);
             <p class="description"><?php esc_html_e('Obrigatorio para receber atualizacoes de estoque via webhook do Odoo.', 'odoo-woocommerce-sync'); ?></p>
         </td>
     </tr>
+    <tr>
+        <th><?php esc_html_e('Webhook sem token (inseguro)', 'odoo-woocommerce-sync'); ?></th>
+        <td>
+            <label>
+                <input type="checkbox"
+                    name="odoo_woocommerce_sync_settings[allow_unauthenticated_stock_webhook]"
+                    value="1"
+                    <?php checked(!empty($settings['allow_unauthenticated_stock_webhook'])); ?> />
+                <?php esc_html_e('Permitir webhook de estoque sem autenticacao quando webhook_token estiver vazio', 'odoo-woocommerce-sync'); ?>
+            </label>
+            <p class="description" style="color:#d63638">
+                <?php esc_html_e('Nao recomendado: qualquer pessoa que alcance esse endpoint pode alterar o estoque.', 'odoo-woocommerce-sync'); ?>
+            </p>
+        </td>
+    </tr>
 </table>
 <p>
     <button type="button" class="button button-secondary" id="odoo-test-connection"><?php esc_html_e('Testar Conexao', 'odoo-woocommerce-sync'); ?></button>
