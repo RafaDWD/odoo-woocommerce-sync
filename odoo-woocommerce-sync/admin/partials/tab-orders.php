@@ -4,6 +4,9 @@ if (!defined('ABSPATH')) {
 }
 
 $settings = get_option('odoo_woocommerce_sync_settings', []);
+?>
+<input type="hidden" name="odoo_woocommerce_sync_settings[_active_tab]" value="orders" />
+<?php
 $status_map = $settings['order_status_map'] ?? [
     'pending' => 'draft',
     'processing' => 'sale',

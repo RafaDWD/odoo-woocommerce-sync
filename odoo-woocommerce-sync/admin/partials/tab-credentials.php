@@ -4,6 +4,7 @@ if (!defined('ABSPATH')) {
 }
 $settings = get_option('odoo_woocommerce_sync_settings', []);
 ?>
+<input type="hidden" name="odoo_woocommerce_sync_settings[_active_tab]" value="credentials" />
 <table class="form-table" role="presentation">
     <tr>
         <th><label for="odoo_url"><?php esc_html_e('URL do Odoo', 'odoo-woocommerce-sync'); ?></label></th>
@@ -26,8 +27,14 @@ $settings = get_option('odoo_woocommerce_sync_settings', []);
         <td>
             <select id="company_id" name="odoo_woocommerce_sync_settings[company_id]" data-selected="<?php echo esc_attr((string) ($settings['company_id'] ?? 0)); ?>">
                 <option value="0"><?php esc_html_e('Selecione', 'odoo-woocommerce-sync'); ?></option>
+                <?php if (!empty($settings['company_id'])) : ?>
+                    <option value="<?php echo absint($settings['company_id']); ?>" selected="selected">
+                        <?php echo esc_html(sprintf(__('Empresa ID %d (salva)', 'odoo-woocommerce-sync'), absint($settings['company_id']))); ?>
+                    </option>
+                <?php endif; ?>
             </select>
             <button type="button" class="button" id="odoo-load-companies"><?php esc_html_e('Carregar empresas', 'odoo-woocommerce-sync'); ?></button>
+            <p class="description"><?php esc_html_e('Clique em "Carregar empresas" para ver os nomes. O valor salvo e mantido automaticamente.', 'odoo-woocommerce-sync'); ?></p>
         </td>
     </tr>
     <tr>

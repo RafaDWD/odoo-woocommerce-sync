@@ -5,6 +5,7 @@ if (!defined('ABSPATH')) {
 
 $settings = get_option('odoo_woocommerce_sync_settings', []);
 ?>
+<input type="hidden" name="odoo_woocommerce_sync_settings[_active_tab]" value="stock" />
 <table class="form-table" role="presentation">
     <tr>
         <th><?php esc_html_e('Habilitar', 'odoo-woocommerce-sync'); ?></th>

@@ -6,6 +6,7 @@ if (!defined('ABSPATH')) {
 $settings = get_option('odoo_woocommerce_sync_settings', []);
 $fields = $settings['product_fields'] ?? [];
 ?>
+<input type="hidden" name="odoo_woocommerce_sync_settings[_active_tab]" value="products" />
 <p><?php esc_html_e('Configure a sincronizacao de produtos Odoo <-> WooCommerce.', 'odoo-woocommerce-sync'); ?></p>
 <table class="form-table" role="presentation">
     <tr>

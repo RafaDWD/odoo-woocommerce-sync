@@ -73,38 +73,56 @@ class Odoo_WooCommerce_Sync_Admin
     public function sanitize_settings($input)
     {
         $current = get_option('odoo_woocommerce_sync_settings', []);
-        $output = is_array($current) ? $current : [];
-        $input = is_array($input) ? $input : [];
+        $output  = is_array($current) ? $current : [];
+        $input   = is_array($input) ? $input : [];
 
-        $output['odoo_url'] = esc_url_raw($input['odoo_url'] ?? '');
-        $output['odoo_db'] = sanitize_text_field($input['odoo_db'] ?? '');
-        $output['odoo_user'] = sanitize_text_field($input['odoo_user'] ?? '');
-        $output['odoo_password'] = $this->encrypt_secret((string) ($input['odoo_password'] ?? ''), (string) ($output['odoo_password'] ?? ''));
-        $output['company_id'] = absint($input['company_id'] ?? 0);
-        $output['protocol'] = in_array(($input['protocol'] ?? 'jsonrpc'), ['xmlrpc', 'jsonrpc'], true) ? $input['protocol'] : 'jsonrpc';
-        $output['sync_products'] = !empty($input['sync_products']) ? 1 : 0;
-        $output['sync_orders'] = !empty($input['sync_orders']) ? 1 : 0;
-        $output['sync_stock'] = !empty($input['sync_stock']) ? 1 : 0;
-        $output['product_direction'] = in_array(($input['product_direction'] ?? 'odoo_to_wc'), ['odoo_to_wc', 'wc_to_odoo', 'bidirectional'], true) ? $input['product_direction'] : 'odoo_to_wc';
-        $output['product_fields'] = $this->sanitize_checkbox_array($input['product_fields'] ?? [], ['name', 'description', 'price', 'sku', 'categories', 'attributes', 'images']);
-        $output['translation_enabled'] = !empty($input['translation_enabled']) ? 1 : 0;
-        $output['translation_service'] = in_array(($input['translation_service'] ?? 'google'), ['google', 'deepl'], true) ? $input['translation_service'] : 'google';
-        $new_api_key = sanitize_text_field($input['translation_api_key'] ?? '');
-        $output['translation_api_key'] = $new_api_key !== '' ? $new_api_key : (string) ($output['translation_api_key'] ?? '');
-        $output['source_lang'] = sanitize_text_field($input['source_lang'] ?? 'auto');
-        $output['target_lang'] = sanitize_text_field($input['target_lang'] ?? 'pt_BR');
-        $output['order_status_map'] = $this->sanitize_status_map($input['order_status_map'] ?? []);
-        $output['export_customer_with_order'] = !empty($input['export_customer_with_order']) ? 1 : 0;
-        $output['stock_frequency'] = in_array(($input['stock_frequency'] ?? 'hourly'), ['realtime', 'hourly', 'daily'], true) ? $input['stock_frequency'] : 'hourly';
-        $output['stock_location_id'] = sanitize_text_field($input['stock_location_id'] ?? '');
+        // Cada aba envia um campo oculto _active_tab para que apenas os campos
+        // daquela aba sejam atualizados, evitando sobrescrever outras abas com vazio.
+        $tab = sanitize_key($input['_active_tab'] ?? 'credentials');
 
-        $new_rest_token = sanitize_text_field($input['rest_token'] ?? '');
-        $output['rest_token'] = $new_rest_token !== '' ? $new_rest_token : (string) ($output['rest_token'] ?? '');
+        switch ($tab) {
+            case 'products':
+                $output['sync_products']      = !empty($input['sync_products']) ? 1 : 0;
+                $output['product_direction']  = in_array(($input['product_direction'] ?? 'odoo_to_wc'), ['odoo_to_wc', 'wc_to_odoo', 'bidirectional'], true) ? $input['product_direction'] : 'odoo_to_wc';
+                $output['product_fields']     = $this->sanitize_checkbox_array($input['product_fields'] ?? [], ['name', 'description', 'price', 'sku', 'categories', 'attributes', 'images']);
+                $output['translation_enabled'] = !empty($input['translation_enabled']) ? 1 : 0;
+                $output['translation_service'] = in_array(($input['translation_service'] ?? 'google'), ['google', 'deepl'], true) ? $input['translation_service'] : 'google';
+                $new_api_key = sanitize_text_field($input['translation_api_key'] ?? '');
+                $output['translation_api_key'] = $new_api_key !== '' ? $new_api_key : (string) ($output['translation_api_key'] ?? '');
+                $output['source_lang']        = sanitize_text_field($input['source_lang'] ?? 'auto');
+                $output['target_lang']        = sanitize_text_field($input['target_lang'] ?? 'pt_BR');
+                break;
 
-        $new_webhook_token = sanitize_text_field($input['webhook_token'] ?? '');
-        $output['webhook_token'] = $new_webhook_token !== '' ? $new_webhook_token : (string) ($output['webhook_token'] ?? '');
+            case 'orders':
+                $output['sync_orders']                = !empty($input['sync_orders']) ? 1 : 0;
+                $output['order_status_map']           = $this->sanitize_status_map($input['order_status_map'] ?? []);
+                $output['export_customer_with_order'] = !empty($input['export_customer_with_order']) ? 1 : 0;
+                break;
 
-        $output['allow_unauthenticated_stock_webhook'] = !empty($input['allow_unauthenticated_stock_webhook']) ? 1 : 0;
+            case 'stock':
+                $output['sync_stock']       = !empty($input['sync_stock']) ? 1 : 0;
+                $output['stock_frequency']  = in_array(($input['stock_frequency'] ?? 'hourly'), ['realtime', 'hourly', 'daily'], true) ? $input['stock_frequency'] : 'hourly';
+                $output['stock_location_id'] = sanitize_text_field($input['stock_location_id'] ?? '');
+                break;
+
+            case 'credentials':
+            default:
+                $output['odoo_url']      = esc_url_raw($input['odoo_url'] ?? '');
+                $output['odoo_db']       = sanitize_text_field($input['odoo_db'] ?? '');
+                $output['odoo_user']     = sanitize_text_field($input['odoo_user'] ?? '');
+                $output['odoo_password'] = $this->encrypt_secret((string) ($input['odoo_password'] ?? ''), (string) ($output['odoo_password'] ?? ''));
+                $output['company_id']    = absint($input['company_id'] ?? 0);
+                $output['protocol']      = in_array(($input['protocol'] ?? 'jsonrpc'), ['xmlrpc', 'jsonrpc'], true) ? $input['protocol'] : 'jsonrpc';
+
+                $new_rest_token = sanitize_text_field($input['rest_token'] ?? '');
+                $output['rest_token'] = $new_rest_token !== '' ? $new_rest_token : (string) ($output['rest_token'] ?? '');
+
+                $new_webhook_token = sanitize_text_field($input['webhook_token'] ?? '');
+                $output['webhook_token'] = $new_webhook_token !== '' ? $new_webhook_token : (string) ($output['webhook_token'] ?? '');
+
+                $output['allow_unauthenticated_stock_webhook'] = !empty($input['allow_unauthenticated_stock_webhook']) ? 1 : 0;
+                break;
+        }
 
         return $output;
     }
