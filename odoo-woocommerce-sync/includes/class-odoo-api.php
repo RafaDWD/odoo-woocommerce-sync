@@ -305,17 +305,16 @@ class OdooAPI
 
     private function apply_company_context(array $kwargs): array
     {
-        $context = [];
-        if (isset($kwargs['context']) && is_array($kwargs['context'])) {
-            $context = $kwargs['context'];
+        if ($this->company_id <= 0) {
+            // Não enviar context vazio: array [] seria codificado como <array> (lista)
+            // pelo XML-RPC, mas o Odoo espera um struct (dict). Omitir é mais seguro.
+            return $kwargs;
         }
 
-        if ($this->company_id > 0) {
-            $context['company_id'] = $this->company_id;
-            $context['allowed_company_ids'] = [$this->company_id];
-        }
-
-        $kwargs['context'] = $context;
+        $context = is_array($kwargs['context'] ?? null) ? $kwargs['context'] : [];
+        $context['company_id']           = $this->company_id;
+        $context['allowed_company_ids']  = [$this->company_id];
+        $kwargs['context']               = $context;
         return $kwargs;
     }
 

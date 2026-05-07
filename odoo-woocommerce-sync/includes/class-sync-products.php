@@ -46,8 +46,10 @@ class SyncProducts
                 'default_code',
                 'categ_id',
                 'attribute_line_ids',
-                'image_1920',
                 'qty_available',
+                // image_1920 excluído do batch — cada imagem pode ter centenas de KB
+                // e retornar 50 imagens em um único XML-RPC/JSON-RPC esgota memória.
+                // A imagem é buscada individualmente em sync_single_odoo_product().
             ];
 
             do {
@@ -328,10 +330,13 @@ class SyncProducts
         update_post_meta($saved_id, '_odoo_product_id', $odoo_id);
         update_post_meta($saved_id, '_odoo_sync_date', gmdate('Y-m-d H:i:s'));
 
-        $image_b64 = is_string($odoo_product['image_1920'] ?? null) ? (string) $odoo_product['image_1920'] : '';
-        if ($image_b64 !== '') {
+        if (in_array('images', (array) ($this->settings['product_fields'] ?? []), true)) {
             try {
-                $this->attach_odoo_image_to_product($product, $image_b64, $odoo_id);
+                $img_records = $this->api->search_read('product.template', [['id', '=', $odoo_id]], ['image_1920'], 1, 0);
+                $image_b64   = is_string($img_records[0]['image_1920'] ?? null) ? (string) $img_records[0]['image_1920'] : '';
+                if ($image_b64 !== '') {
+                    $this->attach_odoo_image_to_product($product, $image_b64, $odoo_id);
+                }
             } catch (\Throwable $e) {
                 $this->logger->log('warning', 'product', 'from_odoo', (string) $saved_id, 'Imagem nao sincronizada: ' . $e->getMessage(), (string) $odoo_id);
             }
