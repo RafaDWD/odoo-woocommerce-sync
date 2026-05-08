@@ -4,7 +4,8 @@ if (!defined('ABSPATH')) {
 }
 
 $logger = class_exists('\DWDOdooWooSync\SyncLogger') ? new \DWDOdooWooSync\SyncLogger() : null;
-$logs = $logger ? $logger->get_logs(20) : [];
+$data   = $logger ? $logger->get_logs([], 1, 20) : ['items' => []];
+$logs   = $data['items'];
 ?>
 <p><?php esc_html_e('Ultimos eventos de sincronizacao:', 'odoo-woocommerce-sync'); ?></p>
 <p>

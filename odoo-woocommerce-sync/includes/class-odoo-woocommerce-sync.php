@@ -57,15 +57,7 @@ class Odoo_WooCommerce_Sync
 
     private function define_sync_hooks()
     {
-        $settings = get_option('odoo_woocommerce_sync_settings', []);
-        $api = new OdooAPI([
-            'url' => $settings['odoo_url'] ?? '',
-            'db' => $settings['odoo_db'] ?? '',
-            'username' => $settings['odoo_user'] ?? '',
-            'password' => $this->decrypt_password((string) ($settings['odoo_password'] ?? '')),
-            'company_id' => (int) ($settings['company_id'] ?? 0),
-            'protocol' => $settings['protocol'] ?? 'jsonrpc',
-        ]);
+        $api = self::build_api();
         $this->logger = new SyncLogger();
         $sync_products = new SyncProducts($api, $this->logger, new TranslationService());
         $sync_customers = new SyncCustomers($api, $this->logger);
@@ -143,7 +135,7 @@ class Odoo_WooCommerce_Sync
         return $result;
     }
 
-    public function register_custom_schedules(array $schedules): array
+    public static function register_custom_schedules(array $schedules): array
     {
         $schedules['odoo_sync_every_5_minutes'] = [
             'interval' => 5 * MINUTE_IN_SECONDS,
@@ -284,14 +276,66 @@ class Odoo_WooCommerce_Sync
         return new \WP_REST_Response($data, 200);
     }
 
+    public static function build_api(array $settings = []): OdooAPI
+    {
+        if (empty($settings)) {
+            $settings = get_option('odoo_woocommerce_sync_settings', []);
+        }
+        $password = self::decrypt_password_static((string) ($settings['odoo_password'] ?? ''));
+
+        return new OdooAPI([
+            'url'        => $settings['odoo_url']  ?? '',
+            'db'         => $settings['odoo_db']   ?? '',
+            'username'   => $settings['odoo_user'] ?? '',
+            'password'   => $password,
+            'company_id' => (int) ($settings['company_id'] ?? 0),
+            'protocol'   => $settings['protocol']  ?? 'jsonrpc',
+        ]);
+    }
+
+    public static function decrypt_password_static(string $encrypted): string
+    {
+        if ($encrypted === '' || !function_exists('openssl_decrypt')) {
+            return $encrypted;
+        }
+        $key = hash('sha256', (string) AUTH_KEY, true);
+        $raw = base64_decode($encrypted, true);
+
+        if ($raw !== false && strlen($raw) > 16) {
+            $iv     = substr($raw, 0, 16);
+            $cipher = substr($raw, 16);
+            $plain  = openssl_decrypt($cipher, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+            if ($plain !== false) {
+                return $plain;
+            }
+        }
+
+        $iv_legacy = substr(hash('sha256', (string) SECURE_AUTH_KEY), 0, 16);
+        $plain = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv_legacy);
+        return $plain !== false ? $plain : $encrypted;
+    }
+
     private function decrypt_password(string $encrypted): string
     {
         if ($encrypted === '' || !function_exists('openssl_decrypt')) {
             return $encrypted;
         }
         $key = hash('sha256', (string) AUTH_KEY, true);
-        $iv = substr(hash('sha256', (string) SECURE_AUTH_KEY), 0, 16);
-        $plain = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
+        $raw = base64_decode($encrypted, true);
+
+        // Formato novo: 16 bytes de IV + ciphertext
+        if ($raw !== false && strlen($raw) > 16) {
+            $iv     = substr($raw, 0, 16);
+            $cipher = substr($raw, 16);
+            $plain  = openssl_decrypt($cipher, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+            if ($plain !== false) {
+                return $plain;
+            }
+        }
+
+        // Fallback: formato antigo (IV fixo) — migração transparente
+        $iv_legacy = substr(hash('sha256', (string) SECURE_AUTH_KEY), 0, 16);
+        $plain = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv_legacy);
         return $plain !== false ? $plain : $encrypted;
     }
 }

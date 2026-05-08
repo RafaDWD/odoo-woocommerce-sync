@@ -73,66 +73,93 @@ class Odoo_WooCommerce_Sync_Admin
     public function sanitize_settings($input)
     {
         $current = get_option('odoo_woocommerce_sync_settings', []);
-        $output = is_array($current) ? $current : [];
-        $input = is_array($input) ? $input : [];
+        $output  = is_array($current) ? $current : [];
+        $input   = is_array($input) ? $input : [];
 
-        $output['odoo_url'] = esc_url_raw($input['odoo_url'] ?? '');
-        $output['odoo_db'] = sanitize_text_field($input['odoo_db'] ?? '');
-        $output['odoo_user'] = sanitize_text_field($input['odoo_user'] ?? '');
-        $output['odoo_password'] = $this->encrypt_secret((string) ($input['odoo_password'] ?? ''), (string) ($output['odoo_password'] ?? ''));
-        $output['company_id'] = absint($input['company_id'] ?? 0);
-        $output['protocol'] = in_array(($input['protocol'] ?? 'jsonrpc'), ['xmlrpc', 'jsonrpc'], true) ? $input['protocol'] : 'jsonrpc';
-        $output['sync_products'] = !empty($input['sync_products']) ? 1 : 0;
-        $output['sync_orders'] = !empty($input['sync_orders']) ? 1 : 0;
-        $output['sync_stock'] = !empty($input['sync_stock']) ? 1 : 0;
-        $output['product_direction'] = in_array(($input['product_direction'] ?? 'odoo_to_wc'), ['odoo_to_wc', 'wc_to_odoo', 'bidirectional'], true) ? $input['product_direction'] : 'odoo_to_wc';
-        $output['product_fields'] = $this->sanitize_checkbox_array($input['product_fields'] ?? [], ['name', 'description', 'price', 'sku', 'categories', 'attributes', 'images']);
-        $output['translation_enabled'] = !empty($input['translation_enabled']) ? 1 : 0;
-        $output['translation_service'] = in_array(($input['translation_service'] ?? 'google'), ['google', 'deepl'], true) ? $input['translation_service'] : 'google';
-        $output['translation_api_key'] = sanitize_text_field($input['translation_api_key'] ?? '');
-        $output['source_lang'] = sanitize_text_field($input['source_lang'] ?? 'auto');
-        $output['target_lang'] = sanitize_text_field($input['target_lang'] ?? 'pt_BR');
-        $output['order_status_map'] = $this->sanitize_status_map($input['order_status_map'] ?? []);
-        $output['export_customer_with_order'] = !empty($input['export_customer_with_order']) ? 1 : 0;
-        $output['stock_frequency'] = in_array(($input['stock_frequency'] ?? 'hourly'), ['realtime', 'hourly', 'daily'], true) ? $input['stock_frequency'] : 'hourly';
-        $output['stock_location_id'] = sanitize_text_field($input['stock_location_id'] ?? '');
+        // Cada aba envia um campo oculto _active_tab para que apenas os campos
+        // daquela aba sejam atualizados, evitando sobrescrever outras abas com vazio.
+        $tab = sanitize_key($input['_active_tab'] ?? 'credentials');
+
+        switch ($tab) {
+            case 'products':
+                $output['sync_products']      = !empty($input['sync_products']) ? 1 : 0;
+                $output['product_direction']  = in_array(($input['product_direction'] ?? 'odoo_to_wc'), ['odoo_to_wc', 'wc_to_odoo', 'bidirectional'], true) ? $input['product_direction'] : 'odoo_to_wc';
+                $output['product_fields']     = $this->sanitize_checkbox_array($input['product_fields'] ?? [], ['name', 'description', 'price', 'sku', 'categories', 'attributes', 'images']);
+                $output['translation_enabled'] = !empty($input['translation_enabled']) ? 1 : 0;
+                $output['translation_service'] = in_array(($input['translation_service'] ?? 'google'), ['google', 'deepl'], true) ? $input['translation_service'] : 'google';
+                $new_api_key = sanitize_text_field($input['translation_api_key'] ?? '');
+                $output['translation_api_key'] = $new_api_key !== '' ? $new_api_key : (string) ($output['translation_api_key'] ?? '');
+                $output['source_lang']        = sanitize_text_field($input['source_lang'] ?? 'auto');
+                $output['target_lang']        = sanitize_text_field($input['target_lang'] ?? 'pt_BR');
+                break;
+
+            case 'orders':
+                $output['sync_orders']                = !empty($input['sync_orders']) ? 1 : 0;
+                $output['order_status_map']           = $this->sanitize_status_map($input['order_status_map'] ?? []);
+                $output['export_customer_with_order'] = !empty($input['export_customer_with_order']) ? 1 : 0;
+                break;
+
+            case 'stock':
+                $output['sync_stock']       = !empty($input['sync_stock']) ? 1 : 0;
+                $output['stock_frequency']  = in_array(($input['stock_frequency'] ?? 'hourly'), ['realtime', 'hourly', 'daily'], true) ? $input['stock_frequency'] : 'hourly';
+                $output['stock_location_id'] = sanitize_text_field($input['stock_location_id'] ?? '');
+                break;
+
+            case 'credentials':
+            default:
+                $output['odoo_url']      = esc_url_raw($input['odoo_url'] ?? '');
+                $output['odoo_db']       = sanitize_text_field($input['odoo_db'] ?? '');
+                $output['odoo_user']     = sanitize_text_field($input['odoo_user'] ?? '');
+                $output['odoo_password'] = $this->encrypt_secret((string) ($input['odoo_password'] ?? ''), (string) ($output['odoo_password'] ?? ''));
+                $output['company_id']    = absint($input['company_id'] ?? 0);
+                $output['protocol']      = in_array(($input['protocol'] ?? 'jsonrpc'), ['xmlrpc', 'jsonrpc'], true) ? $input['protocol'] : 'jsonrpc';
+
+                $new_rest_token = sanitize_text_field($input['rest_token'] ?? '');
+                $output['rest_token'] = $new_rest_token !== '' ? $new_rest_token : (string) ($output['rest_token'] ?? '');
+
+                $new_webhook_token = sanitize_text_field($input['webhook_token'] ?? '');
+                $output['webhook_token'] = $new_webhook_token !== '' ? $new_webhook_token : (string) ($output['webhook_token'] ?? '');
+
+                $output['allow_unauthenticated_stock_webhook'] = !empty($input['allow_unauthenticated_stock_webhook']) ? 1 : 0;
+                break;
+        }
 
         return $output;
     }
 
     public function display_admin_page()
     {
-        $_GET['tab'] = 'dashboard';
-        include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
+        $this->render_admin_tab('dashboard');
     }
 
     public function display_products_page()
     {
-        $_GET['tab'] = 'products';
-        include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
+        $this->render_admin_tab('products');
     }
 
     public function display_orders_page()
     {
-        $_GET['tab'] = 'orders';
-        include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
+        $this->render_admin_tab('orders');
     }
 
     public function display_stock_page()
     {
-        $_GET['tab'] = 'stock';
-        include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
+        $this->render_admin_tab('stock');
     }
 
     public function display_logs_page()
     {
-        $_GET['tab'] = 'logs';
-        include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
+        $this->render_admin_tab('logs');
     }
 
     public function display_settings_page()
     {
-        $_GET['tab'] = 'credentials';
+        $this->render_admin_tab('credentials');
+    }
+
+    private function render_admin_tab(string $forced_tab): void
+    {
+        $tab = $forced_tab; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
         include DWD_OWS_PLUGIN_DIR . 'admin/partials/admin-display.php';
     }
 
@@ -174,24 +201,47 @@ class Odoo_WooCommerce_Sync_Admin
             wp_send_json_error(['message' => __('Acesso negado.', DWD_OWS_TEXT_DOMAIN)], 403);
         }
 
-        $type = sanitize_key($_POST['sync_type'] ?? '');
+        $type  = sanitize_key($_POST['sync_type'] ?? '');
         $valid = ['products', 'orders', 'stock'];
         if (!in_array($type, $valid, true)) {
             wp_send_json_error(['message' => __('Tipo de sincronizacao invalido.', DWD_OWS_TEXT_DOMAIN)], 400);
         }
 
-        $progress = [];
-        for ($i = 1; $i <= 10; $i++) {
-            $progress[] = $i * 10;
-        }
-
+        $api    = $this->build_api_from_settings();
         $logger = new \DWDOdooWooSync\SyncLogger();
-        $logger->log('success', rtrim($type, 's'), 'manual', 'admin', __('Sincronizacao manual executada.', DWD_OWS_TEXT_DOMAIN));
 
-        wp_send_json_success([
-            'message' => __('Sincronizacao concluida com sucesso.', DWD_OWS_TEXT_DOMAIN),
-            'progress' => $progress,
-        ]);
+        try {
+            switch ($type) {
+                case 'products':
+                    $sync   = new \DWDOdooWooSync\SyncProducts($api, $logger, new \DWDOdooWooSync\TranslationService($logger));
+                    $result = $sync->sync_from_odoo();
+                    break;
+
+                case 'orders':
+                    $customers = new \DWDOdooWooSync\SyncCustomers($api, $logger);
+                    $orders    = new \DWDOdooWooSync\SyncOrders($api, $logger, $customers);
+                    $result    = $orders->import_orders_from_odoo();
+                    break;
+
+                case 'stock':
+                    $customers = new \DWDOdooWooSync\SyncCustomers($api, $logger);
+                    $orders    = new \DWDOdooWooSync\SyncOrders($api, $logger, $customers);
+                    $stock     = new \DWDOdooWooSync\SyncStock($api, $logger, $orders);
+                    $result    = $stock->update_woocommerce_stock_from_odoo();
+                    break;
+
+                default:
+                    $result = ['errors' => 1];
+            }
+
+            wp_send_json_success([
+                'message'  => __('Sincronizacao concluida.', DWD_OWS_TEXT_DOMAIN),
+                'result'   => $result,
+                'progress' => [10, 30, 60, 90, 100],
+            ]);
+        } catch (\Throwable $e) {
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
     }
 
     public function ajax_cleanup_logs()
@@ -209,26 +259,37 @@ class Odoo_WooCommerce_Sync_Admin
 
     public function ajax_export_logs()
     {
-        check_ajax_referer('odoo_sync_nonce', 'nonce');
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => __('Acesso negado.', DWD_OWS_TEXT_DOMAIN)], 403);
+        // Verifica nonce e permissão antes de qualquer output
+        if (!check_ajax_referer('odoo_sync_nonce', 'nonce', false) || !current_user_can('manage_options')) {
+            status_header(403);
+            exit('Acesso negado.');
         }
 
-        $logger = new \DWDOdooWooSync\SyncLogger();
-        $logs = $logger->get_logs(500);
-        $upload = wp_upload_dir();
-        $file = trailingslashit($upload['basedir']) . 'odoo-sync-logs-' . gmdate('Ymd-His') . '.csv';
-        $fh = fopen($file, 'w');
-        if (!$fh) {
-            wp_send_json_error(['message' => __('Nao foi possivel gerar CSV.', DWD_OWS_TEXT_DOMAIN)], 500);
-        }
+        $logger   = new \DWDOdooWooSync\SyncLogger();
+        $data     = $logger->get_logs([], 1, 500);
+        $logs     = $data['items'];
+        $filename = 'odoo-sync-logs-' . gmdate('Ymd-His') . '.csv';
+
+        // Envia diretamente como download — sem salvar arquivo público
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Pragma: no-cache');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+
+        $fh = fopen('php://output', 'w');
         fputcsv($fh, ['created_at', 'sync_type', 'direction', 'entity_id', 'status', 'message']);
         foreach ($logs as $row) {
-            fputcsv($fh, [$row['created_at'], $row['sync_type'], $row['direction'], $row['entity_id'], $row['status'], $row['message']]);
+            fputcsv($fh, [
+                $row['created_at'] ?? '',
+                $row['sync_type']  ?? '',
+                $row['direction']  ?? '',
+                $row['entity_id']  ?? '',
+                $row['status']     ?? '',
+                $row['message']    ?? '',
+            ]);
         }
         fclose($fh);
-
-        wp_send_json_success(['message' => __('CSV gerado com sucesso.', DWD_OWS_TEXT_DOMAIN), 'url' => trailingslashit($upload['baseurl']) . basename($file)]);
+        exit;
     }
 
     public function ajax_reprocess_failures()
@@ -240,8 +301,33 @@ class Odoo_WooCommerce_Sync_Admin
 
         global $wpdb;
         $table = $wpdb->prefix . 'odoo_sync_logs';
-        $updated = $wpdb->query("UPDATE {$table} SET reprocessed = 1 WHERE status = 'error' AND reprocessed = 0");
-        wp_send_json_success(['message' => sprintf(__('Falhas marcadas para reprocessamento: %d', DWD_OWS_TEXT_DOMAIN), (int) $updated)]);
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id FROM {$table} WHERE status = %s AND reprocessed = %d ORDER BY created_at DESC LIMIT %d",
+                'error', 0, 50
+            ),
+            ARRAY_A
+        );
+
+        if (empty($rows)) {
+            wp_send_json_success(['message' => __('Nenhuma falha pendente para reprocessar.', DWD_OWS_TEXT_DOMAIN)]);
+            return;
+        }
+
+        $log_ids = array_column($rows, 'id');
+        $logger  = new \DWDOdooWooSync\SyncLogger();
+        $result  = $logger->reprocess_failed($log_ids);
+
+        wp_send_json_success([
+            'message' => sprintf(
+                __('Reprocessados: %1$d | Sucesso: %2$d | Falhas: %3$d', DWD_OWS_TEXT_DOMAIN),
+                $result['processed'],
+                $result['succeeded'],
+                $result['failed']
+            ),
+            'details' => $result['messages'],
+        ]);
     }
 
     private function sanitize_checkbox_array($values, array $allowed): array
@@ -284,35 +370,40 @@ class Odoo_WooCommerce_Sync_Admin
             return $new_value;
         }
         $key = hash('sha256', (string) AUTH_KEY, true);
-        $iv = substr(hash('sha256', (string) SECURE_AUTH_KEY), 0, 16);
-        $encrypted = openssl_encrypt($new_value, 'AES-256-CBC', $key, 0, $iv);
-        return $encrypted ?: $new_value;
+        $iv  = random_bytes(16);
+        $raw = openssl_encrypt($new_value, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+        if ($raw === false) {
+            return $new_value;
+        }
+        return base64_encode($iv . $raw);
     }
 
     private function decrypt_secret(string $encrypted): string
     {
-        if ($encrypted === '') {
-            return '';
-        }
-        if (!function_exists('openssl_decrypt')) {
+        if ($encrypted === '' || !function_exists('openssl_decrypt')) {
             return $encrypted;
         }
         $key = hash('sha256', (string) AUTH_KEY, true);
-        $iv = substr(hash('sha256', (string) SECURE_AUTH_KEY), 0, 16);
-        $plain = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
+        $raw = base64_decode($encrypted, true);
+
+        // Formato novo: 16 bytes de IV + ciphertext
+        if ($raw !== false && strlen($raw) > 16) {
+            $iv     = substr($raw, 0, 16);
+            $cipher = substr($raw, 16);
+            $plain  = openssl_decrypt($cipher, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+            if ($plain !== false) {
+                return $plain;
+            }
+        }
+
+        // Fallback: formato antigo (IV fixo) — migração transparente na próxima gravação
+        $iv_legacy = substr(hash('sha256', (string) SECURE_AUTH_KEY), 0, 16);
+        $plain = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv_legacy);
         return $plain !== false ? $plain : $encrypted;
     }
 
     private function build_api_from_settings(): \DWDOdooWooSync\OdooAPI
     {
-        $settings = get_option('odoo_woocommerce_sync_settings', []);
-        return new \DWDOdooWooSync\OdooAPI([
-            'url' => $settings['odoo_url'] ?? '',
-            'db' => $settings['odoo_db'] ?? '',
-            'username' => $settings['odoo_user'] ?? '',
-            'password' => $this->decrypt_secret((string) ($settings['odoo_password'] ?? '')),
-            'company_id' => (int) ($settings['company_id'] ?? 0),
-            'protocol' => $settings['protocol'] ?? 'jsonrpc',
-        ]);
+        return \DWDOdooWooSync\Odoo_WooCommerce_Sync::build_api();
     }
 }

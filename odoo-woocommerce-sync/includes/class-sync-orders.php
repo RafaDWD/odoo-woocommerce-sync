@@ -108,8 +108,16 @@ class SyncOrders
     public function import_orders_from_odoo(): array
     {
         $result = ['created' => 0, 'errors' => 0];
+
         try {
-            $orders = $this->api->search_read('sale.order', [['state', 'in', ['sale', 'done']]], ['id', 'name', 'amount_total', 'date_order'], 20, 0);
+            $orders = $this->api->search_read(
+                'sale.order',
+                [['state', 'in', ['sale', 'done']]],
+                ['id', 'name', 'amount_total', 'date_order', 'partner_id', 'order_line'],
+                20,
+                0
+            );
+
             foreach ($orders as $odoo_order) {
                 try {
                     $odoo_id = (int) ($odoo_order['id'] ?? 0);
@@ -117,10 +125,62 @@ class SyncOrders
                         continue;
                     }
 
+                    // Busca linhas do pedido
+                    $line_ids = is_array($odoo_order['order_line'] ?? null) ? $odoo_order['order_line'] : [];
+                    $lines    = [];
+                    if (!empty($line_ids)) {
+                        $lines = $this->api->search_read(
+                            'sale.order.line',
+                            [['id', 'in', $line_ids]],
+                            ['id', 'product_id', 'product_uom_qty', 'price_unit', 'name'],
+                            200,
+                            0
+                        );
+                    }
+
                     $wc_order = wc_create_order();
-                    $wc_order->set_customer_note(sprintf(__('Importado do Odoo: %s', DWD_OWS_TEXT_DOMAIN), (string) ($odoo_order['name'] ?? '')));
-                    $wc_order->add_order_note(sprintf(__('Pedido Odoo #%d importado.', DWD_OWS_TEXT_DOMAIN), $odoo_id));
+                    $wc_order->set_customer_note(sprintf(
+                        __('Importado do Odoo: %s', DWD_OWS_TEXT_DOMAIN),
+                        (string) ($odoo_order['name'] ?? '')
+                    ));
+
+                    foreach ($lines as $line) {
+                        // product_id retorna como [id, name] no JSON-RPC do Odoo
+                        $odoo_product_id = is_array($line['product_id'] ?? null)
+                            ? (int) $line['product_id'][0]
+                            : (int) ($line['product_id'] ?? 0);
+
+                        if ($odoo_product_id <= 0) {
+                            continue;
+                        }
+
+                        $wc_product_id = $this->find_wc_product_by_odoo_template_id($odoo_product_id);
+                        $product       = $wc_product_id > 0 ? wc_get_product($wc_product_id) : null;
+                        $qty           = (int) ($line['product_uom_qty'] ?? 1);
+                        $price         = (float) ($line['price_unit'] ?? 0);
+
+                        if ($product) {
+                            $wc_order->add_product($product, $qty, [
+                                'subtotal' => $price * $qty,
+                                'total'    => $price * $qty,
+                            ]);
+                        } else {
+                            // Produto não encontrado localmente — adiciona como item de taxa
+                            $fee = new \WC_Order_Item_Fee();
+                            $fee->set_name((string) ($line['name'] ?? 'Produto Odoo #' . $odoo_product_id));
+                            $fee->set_total($price * $qty);
+                            $wc_order->add_item($fee);
+                        }
+                    }
+
+                    $wc_order->calculate_totals();
+                    $wc_order->add_order_note(sprintf(
+                        __('Pedido Odoo #%d importado. Total: %s', DWD_OWS_TEXT_DOMAIN),
+                        $odoo_id,
+                        wc_price((float) ($odoo_order['amount_total'] ?? 0))
+                    ));
                     $wc_order->save();
+
                     update_post_meta($wc_order->get_id(), '_odoo_order_id', $odoo_id);
                     update_post_meta($wc_order->get_id(), '_odoo_order_name', (string) ($odoo_order['name'] ?? ''));
                     $result['created']++;
@@ -135,6 +195,22 @@ class SyncOrders
         }
 
         return $result;
+    }
+
+    private function find_wc_product_by_odoo_template_id(int $odoo_tmpl_id): int
+    {
+        $query = new \WP_Query([
+            'post_type'      => 'product',
+            'post_status'    => 'any',
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+            'meta_query'     => [[
+                'key'     => '_odoo_product_id',
+                'value'   => $odoo_tmpl_id,
+                'compare' => '=',
+            ]],
+        ]);
+        return !empty($query->posts[0]) ? (int) $query->posts[0] : 0;
     }
 
     public function on_order_status_changed(int $order_id, string $old_status, string $new_status): void

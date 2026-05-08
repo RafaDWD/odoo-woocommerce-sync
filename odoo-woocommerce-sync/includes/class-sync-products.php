@@ -35,8 +35,10 @@ class SyncProducts
             }
 
             $batch_size = isset($options['batch_size']) ? max(1, (int) $options['batch_size']) : 50;
-            $offset = isset($options['offset']) ? max(0, (int) $options['offset']) : 0;
-            $domain = $options['domain'] ?? [['active', '=', true], ['type', 'in', ['consu', 'product']]];
+            $offset     = isset($options['offset']) ? max(0, (int) $options['offset']) : 0;
+            // Filtro somente por active=true; tipo removido para não excluir
+            // produtos do tipo "service" que o usuário queira vender no WooCommerce.
+            $domain = $options['domain'] ?? [['active', '=', true]];
             $fields = [
                 'id',
                 'name',
@@ -46,9 +48,21 @@ class SyncProducts
                 'default_code',
                 'categ_id',
                 'attribute_line_ids',
-                'image_1920',
                 'qty_available',
+                // image_1920 excluído do batch — cada imagem pode ter centenas de KB
+                // e retornar 50 imagens em um único request esgota memória.
+                // A imagem é buscada individualmente em sync_single_odoo_product().
             ];
+
+            // Diagnóstico: registra quantos produtos o Odoo retorna com o filtro atual.
+            try {
+                $total_count = count($this->api->search('product.template', $domain));
+                $this->logger->log('info', 'product', 'from_odoo', 'batch',
+                    sprintf('Odoo retornou %d produtos para sincronizar.', $total_count));
+            } catch (\Throwable $e) {
+                $this->logger->log('warning', 'product', 'from_odoo', 'batch',
+                    'Nao foi possivel contar produtos no Odoo: ' . $e->getMessage());
+            }
 
             do {
                 $records = $this->api->search_read('product.template', $domain, $fields, $batch_size, $offset);
@@ -81,7 +95,7 @@ class SyncProducts
                 'product',
                 'from_odoo',
                 'batch',
-                __('Sincronizacao de produtos finalizada.', DWD_OWS_TEXT_DOMAIN),
+                sprintf(__('Sincronizacao de produtos finalizada. Criados: %d | Atualizados: %d | Erros: %d', DWD_OWS_TEXT_DOMAIN), $result['created'], $result['updated'], $result['errors']),
                 null,
                 $result
             );
@@ -211,9 +225,12 @@ class SyncProducts
         if ($post->post_type !== 'product' || wp_is_post_revision($post_id)) {
             return;
         }
-        if ($update) {
+        if (!$update) {
+            // Produto novo: woocommerce_update_product dispara logo após e cobre este caso.
+            // Retornar aqui evita dupla exportação para o Odoo.
             return;
         }
+        // Update direto via wp_update_post sem passar pelo WooCommerce
         $this->sync_to_odoo($post_id);
     }
 
@@ -325,12 +342,20 @@ class SyncProducts
         update_post_meta($saved_id, '_odoo_product_id', $odoo_id);
         update_post_meta($saved_id, '_odoo_sync_date', gmdate('Y-m-d H:i:s'));
 
-        if (!empty($odoo_product['attribute_line_ids']) && $product instanceof \WC_Product_Variable) {
-            $this->sync_variations($product, (array) $odoo_product['attribute_line_ids']);
+        if (in_array('images', (array) ($this->settings['product_fields'] ?? []), true)) {
+            try {
+                $img_records = $this->api->search_read('product.template', [['id', '=', $odoo_id]], ['image_1920'], 1, 0);
+                $image_b64   = is_string($img_records[0]['image_1920'] ?? null) ? (string) $img_records[0]['image_1920'] : '';
+                if ($image_b64 !== '') {
+                    $this->attach_odoo_image_to_product($product, $image_b64, $odoo_id);
+                }
+            } catch (\Throwable $e) {
+                $this->logger->log('warning', 'product', 'from_odoo', (string) $saved_id, 'Imagem nao sincronizada: ' . $e->getMessage(), (string) $odoo_id);
+            }
         }
 
-        if (!empty($odoo_product['image_1920'])) {
-            update_post_meta($saved_id, '_odoo_image_1920', substr((string) $odoo_product['image_1920'], 0, 128));
+        if (!empty($odoo_product['attribute_line_ids']) && $product instanceof \WC_Product_Variable) {
+            $this->sync_variations($product, (array) $odoo_product['attribute_line_ids']);
         }
 
         $message = sprintf(__('Produto %1$s com sucesso (Odoo #%2$d / WooCommerce #%3$d).', DWD_OWS_TEXT_DOMAIN), $action === 'created' ? __('criado', DWD_OWS_TEXT_DOMAIN) : __('atualizado', DWD_OWS_TEXT_DOMAIN), $odoo_id, $saved_id);
@@ -375,5 +400,88 @@ class SyncProducts
             return ['id' => $categ_id, 'name' => 'Categoria ' . $categ_id];
         }
         return [];
+    }
+
+    private function attach_odoo_image_to_product(\WC_Product $product, string $image_b64, int $odoo_id): void
+    {
+        $data = base64_decode($image_b64, true);
+        if ($data === false || strlen($data) < 8) {
+            return;
+        }
+
+        $saved_id = $product->get_id();
+        if ($saved_id <= 0) {
+            return;
+        }
+
+        // Só re-envia se a imagem mudou no Odoo
+        $new_hash = md5($data);
+        if ((string) get_post_meta($saved_id, '_odoo_image_hash', true) === $new_hash
+            && $product->get_image_id() > 0) {
+            return;
+        }
+
+        // Detecta tipo MIME sem extensão de arquivo
+        $size_info = @getimagesizefromstring($data);
+        if ($size_info === false) {
+            return;
+        }
+        $mime    = $size_info['mime'] ?? '';
+        $ext_map = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/gif'  => 'gif',
+            'image/webp' => 'webp',
+        ];
+        if (!isset($ext_map[$mime])) {
+            return;
+        }
+
+        $upload_dir = wp_upload_dir();
+        if (!empty($upload_dir['error'])) {
+            return;
+        }
+
+        $filename  = 'odoo-product-' . $odoo_id . '.' . $ext_map[$mime];
+        $file_path = trailingslashit($upload_dir['path']) . $filename;
+
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+        if (file_put_contents($file_path, $data) === false) {
+            return;
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+
+        $attach_id = wp_insert_attachment(
+            [
+                'post_mime_type' => $mime,
+                'post_title'     => sanitize_file_name(pathinfo($filename, PATHINFO_FILENAME)),
+                'post_content'   => '',
+                'post_status'    => 'inherit',
+            ],
+            $file_path,
+            $saved_id,
+            true
+        );
+
+        if (is_wp_error($attach_id) || $attach_id <= 0) {
+            @unlink($file_path); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+            return;
+        }
+
+        wp_update_attachment_metadata($attach_id, wp_generate_attachment_metadata($attach_id, $file_path));
+
+        // Remove imagem anterior criada pelo sync para evitar acúmulo na mídia
+        $old_attach_id = (int) $product->get_image_id();
+        if ($old_attach_id > 0 && (string) get_post_meta($old_attach_id, '_odoo_synced_image', true) === '1') {
+            wp_delete_attachment($old_attach_id, true);
+        }
+
+        update_post_meta($attach_id, '_odoo_synced_image', '1');
+        update_post_meta($saved_id, '_odoo_image_hash', $new_hash);
+        $product->set_image_id($attach_id);
+        $product->save();
     }
 }

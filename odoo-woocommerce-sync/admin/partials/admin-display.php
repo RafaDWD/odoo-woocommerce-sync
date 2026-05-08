@@ -3,17 +3,20 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'dashboard';
+// $tab é injetada por render_admin_tab()
+if (!isset($tab)) {
+    $tab = 'dashboard';
+}
 ?>
 <div class="wrap odoo-sync-admin">
     <h1><?php esc_html_e('DWD Multicom Odoo WooCommerce Sync', 'odoo-woocommerce-sync'); ?></h1>
     <h2 class="nav-tab-wrapper">
         <a class="nav-tab <?php echo $tab === 'dashboard' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync')); ?>"><?php esc_html_e('Dashboard', 'odoo-woocommerce-sync'); ?></a>
-        <a class="nav-tab <?php echo $tab === 'credentials' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync&tab=credentials')); ?>"><?php esc_html_e('Credenciais', 'odoo-woocommerce-sync'); ?></a>
-        <a class="nav-tab <?php echo $tab === 'products' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync&tab=products')); ?>"><?php esc_html_e('Produtos', 'odoo-woocommerce-sync'); ?></a>
-        <a class="nav-tab <?php echo $tab === 'orders' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync&tab=orders')); ?>"><?php esc_html_e('Pedidos', 'odoo-woocommerce-sync'); ?></a>
-        <a class="nav-tab <?php echo $tab === 'stock' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync&tab=stock')); ?>"><?php esc_html_e('Estoque', 'odoo-woocommerce-sync'); ?></a>
-        <a class="nav-tab <?php echo $tab === 'logs' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync&tab=logs')); ?>"><?php esc_html_e('Logs', 'odoo-woocommerce-sync'); ?></a>
+        <a class="nav-tab <?php echo $tab === 'credentials' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync-settings')); ?>"><?php esc_html_e('Credenciais', 'odoo-woocommerce-sync'); ?></a>
+        <a class="nav-tab <?php echo $tab === 'products' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync-products')); ?>"><?php esc_html_e('Produtos', 'odoo-woocommerce-sync'); ?></a>
+        <a class="nav-tab <?php echo $tab === 'orders' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync-orders')); ?>"><?php esc_html_e('Pedidos', 'odoo-woocommerce-sync'); ?></a>
+        <a class="nav-tab <?php echo $tab === 'stock' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync-stock')); ?>"><?php esc_html_e('Estoque', 'odoo-woocommerce-sync'); ?></a>
+        <a class="nav-tab <?php echo $tab === 'logs' ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(admin_url('admin.php?page=odoo-woocommerce-sync-logs')); ?>"><?php esc_html_e('Logs', 'odoo-woocommerce-sync'); ?></a>
     </h2>
 
     <form method="post" action="options.php">

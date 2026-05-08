@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: DWD Multicom Odoo WooCommerce Sync
- * Plugin URI: https://example.com/
+ * Plugin Name: Odoo Woocommerce Sync - By DWD Multicom
+ * Plugin URI: https://dwdmulticom.com.br/
  * Description: Sincronizacao base entre Odoo e WooCommerce.
- * Version: 1.0.0
+ * Version: 1.2.2
  * Author: DWD Multicom
  * Text Domain: odoo-woocommerce-sync
  * Domain Path: /languages
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DWD_OWS_VERSION', '1.0.0');
+define('DWD_OWS_VERSION', '1.2.2');
 define('DWD_OWS_PLUGIN_FILE', __FILE__);
 define('DWD_OWS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DWD_OWS_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -54,4 +54,4 @@ function run_odoo_woocommerce_sync()
     $plugin->run();
 }
 
-run_odoo_woocommerce_sync();
+add_action('plugins_loaded', 'run_odoo_woocommerce_sync');
